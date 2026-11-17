@@ -1,40 +1,29 @@
-HTML
+
 <!DOCTYPE html>
 <html lang="ha">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kwallo360 - Labaran Kwallo</title>
+<title>KWALLO360 - Labaran Kwallo</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-body {
-  margin: 0;
-  font-family: Arial, sans-serif;
-  background: #f1f5f9;
-}
-header {
-  background: #071b35;
-  color: white;
-  padding: 22px;
-  text-align: center;
-}
-nav {
-  background: #12365b;
-  padding: 15px;
-  text-align: center;
-}
-nav a {
-  color: white;
-  margin: 10px;
-  text-decoration: none;
-}
-main {
-  padding: 20px;
-}
-article {
-  background: white;
-  padding: 20px;
-  border-radius: 12px;
-}
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#eef2f7;color:#172033}
+header{background:#071b35;color:white;text-align:center;padding:22px}
+header h1{margin:0;font-size:30px}
+nav{background:#12365b;padding:14px;text-align:center}
+nav a{color:white;text-decoration:none;margin:8px;font-weight:bold}
+main{max-width:850px;margin:20px auto;padding:12px}
+.panel,.article{background:white;padding:18px;border-radius:12px;margin-bottom:18px;box-shadow:0 2px 8px #0001}
+input,textarea,select{width:100%;padding:13px;margin:8px 0 14px;border:1px solid #ccd3df;border-radius:7px;font-size:16px}
+textarea{min-height:140px}
+button{background:#d92735;color:white;border:0;padding:13px 18px;border-radius:7px;font-size:16px;font-weight:bold;cursor:pointer}
+.secondary{background:#12365b}
+.hidden{display:none}
+.article img{width:100%;max-height:350px;object-fit:cover;border-radius:9px}
+.article h2{color:#071b35}
+small{color:#64748b}
+#status{margin:10px 0;font-weight:bold}
 </style>
 </head>
 <body>
@@ -42,18 +31,178 @@ article {
 <h1>⚽ KWALLO360</h1>
 <p>Duk labaran kwallo a wuri guda</p>
 </header>
+
 <nav>
-<a href="#">Gida</a>
-<a href="#">Premier League</a>
-<a href="#">La Liga</a>
-<a href="#">Hoto</a>
-<a href="#">Bidiyo</a>
+<a href="#gida">Gida</a>
+<a href="#labarai">Labarai</a>
+<a href="#admin">Admin</a>
 </nav>
+
 <main>
-<article>
+<section id="gida" class="panel">
 <h2>Barka da zuwa Kwallo360</h2>
 <p>Samun sabbin labaran kwallon kafa a kowane lokaci.</p>
-</article>
+</section>
+
+<section id="admin" class="panel">
+<h2>Admin Dashboard</h2>
+<div id="loginBox">
+<h3>Shiga Admin</h3>
+<input id="email" type="email" placeholder="Email">
+<input id="password" type="password" placeholder="Password">
+<button onclick="login()">Shiga</button>
+</div>
+
+<div id="editor" class="hidden">
+<h3>Wallafa sabon labari</h3>
+<input id="title" placeholder="Taken labari">
+<select id="category">
+<option value="Premier League">Premier League</option>
+<option value="La Liga">La Liga</option>
+<option value="Champions League">Champions League</option>
+<option value="Serie A">Serie A</option>
+<option value="Ligue 1">Ligue 1</option>
+<option value="Sauran Labarai">Sauran Labarai</option>
+</select>
+<input id="image" type="url" placeholder="Link din hoton labari (Image URL)">
+<textarea id="content" placeholder="Rubuta cikakken labari a nan"></textarea>
+<button onclick="publish()">Publish Labari</button>
+<button class="secondary" onclick="logout()">Fita</button>
+</div>
+<div id="status"></div>
+</section>
+
+<section id="labarai">
+<h2>Sabbin Labarai</h2>
+<div id="articles">Ana loda labarai...</div>
+</section>
 </main>
+
+<script>
+const SUPABASE_URL = "https://iknmkoidmrenjbrwfait.supabase.co";
+const SUPABASE_KEY = "sb_publishable_YertdyJ5VXPK6jDqmlGJ7Q_yyqRbDAf";
+
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+async function checkAdmin(){
+  const {data:{session}} = await db.auth.getSession();
+  if(!session) return;
+  const {data,error} = await db.from("admins")
+    .select("user_id")
+    .eq("user_id",session.user.id)
+    .maybeSingle();
+
+  if(data && !error){
+    document.getElementById("loginBox").classList.add("hidden");
+    document.getElementById("editor").classList.remove("hidden");
+  } else {
+    document.getElementById("status").textContent =
+      "Ba a tabbatar da izinin Admin ba.";
+  }
+}
+
+async function login(){
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+  const status = document.getElementById("status");
+  status.textContent = "Ana kokarin shiga...";
+
+  const {error} = await db.auth.signInWithPassword({email,password});
+  if(error){
+    status.textContent = "Kuskuren shiga: " + error.message;
+    return;
+  }
+  await checkAdmin();
+  status.textContent = "An shiga.";
+}
+
+async function logout(){
+  await db.auth.signOut();
+  document.getElementById("editor").classList.add("hidden");
+  document.getElementById("loginBox").classList.remove("hidden");
+  document.getElementById("status").textContent = "An fita.";
+}
+
+async function publish(){
+  const title = document.getElementById("title").value.trim();
+  const content = document.getElementById("content").value.trim();
+  const category = document.getElementById("category").value;
+  const image_url = document.getElementById("image").value.trim();
+  const status = document.getElementById("status");
+
+  if(!title || !content){
+    status.textContent = "Ka cika taken labari da bayaninsa.";
+    return;
+  }
+
+  status.textContent = "Ana wallafa labari...";
+  const {data:{user}} = await db.auth.getUser();
+  if(!user){
+    status.textContent = "Ka sake shiga Admin.";
+    return;
+  }
+
+  const {error} = await db.from("articles").insert([{
+    title,content,category,image_url,user_id:user.id
+  }]);
+
+  if(error){
+    status.textContent = "An samu kuskure: " + error.message;
+    return;
+  }
+
+  status.textContent = "An wallafa labari cikin nasara!";
+  document.getElementById("title").value = "";
+  document.getElementById("content").value = "";
+  document.getElementById("image").value = "";
+  loadArticles();
+}
+
+async function loadArticles(){
+  const area = document.getElementById("articles");
+  const {data,error} = await db.from("articles")
+    .select("id,title,content,category,image_url,created_at")
+    .order("created_at",{ascending:false});
+
+  if(error){
+    area.textContent = "Ba a iya loda labarai ba.";
+    return;
+  }
+  if(!data || data.length===0){
+    area.textContent = "Babu labarai tukuna.";
+    return;
+  }
+
+  area.innerHTML = "";
+  data.forEach(article=>{
+    const box = document.createElement("article");
+    box.className = "article";
+
+    if(article.image_url){
+      const img = document.createElement("img");
+      img.src = article.image_url;
+      img.alt = article.title;
+      box.appendChild(img);
+    }
+
+    const heading = document.createElement("h2");
+    heading.textContent = article.title;
+    box.appendChild(heading);
+
+    const category = document.createElement("small");
+    category.textContent = article.category || "Labarai";
+    box.appendChild(category);
+
+    const paragraph = document.createElement("p");
+    paragraph.textContent = article.content;
+    box.appendChild(paragraph);
+
+    area.appendChild(box);
+  });
+}
+
+checkAdmin();
+loadArticles();
+</script>
 </body>
-  </html>
+</html>
